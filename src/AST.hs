@@ -1,4 +1,5 @@
 module AST where
+import Data.AssocList
 
 data Term =
 	TVar String |							--	Progress
@@ -17,15 +18,13 @@ data Term =
 
 
 type Environment = 
-	[ (String , Integer)]
+	[ (String , Term)] -- how to define environment if it can contain thunks??
 
 data Value =
 	 ValInt Integer | 
 	 Closure String Term Environment |
 	 Thunk Term Environment
   deriving (Eq, Show)
-
-searchInEnv :: Environment -> Term -> Value
 
 
 
@@ -56,7 +55,8 @@ evalByValue env t
 	| t == TFix x y = evalByValue (extendEnv env ( x )) -- how to extend?
 	| t == TApp x y = -- how to extend?
 	| t == TFun x y = Closure x y env -- 
-	| t == TVar x = -- search term with name x in env
+	| t == TVar x = if lookupFirst x env == Just t then (case t of 
+												Just 
 					-- if x associated with ValInt exists in env then ValInt
 					-- if x associated with thunk <fix a b, e'>then return result of evaluation evalByValue e' fix a b  
 					-- TODO write search function
