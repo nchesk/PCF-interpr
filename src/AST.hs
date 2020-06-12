@@ -48,26 +48,45 @@ evalByValue env (TDiv x y) =
     case ((evalByValue env x), (evalByValue env y)) of
         ((ValInt x), (ValInt y)) -> if (ValInt y) /= (ValInt 0) then ValInt(x `div` y) else error "Seems like you try to divide by zero"
         _ -> error "Arguments of Divide function aren't numbers"
-evalByValue env (TIf x y z) = 
-    case (evalByValue env x) of
-        (ValInt x) -> if (ValInt x) == (ValInt 0) then (evalByValue env z)  else (evalByValue env y)
+evalByValue env (TIf t u v) = 
+    case (evalByValue env t) of
+        (ValInt t) -> if (ValInt t) == (ValInt 0) then (evalByValue env u)  else (evalByValue env v)
         _ -> error "Seems like something wrong with condition of if-statement"
-evalByValue env (TNum x)=  ValInt x 
-evalByValue env (TLet x y z) = evalByValue (extendEnv env x (evalByValue env y)) z 
-evalByValue env (TFix x y) = evalByValue (extendEnv env x (Thunk (TFix x y) env)) y 
-evalByValue env (TApp x y) = 
-    case (evalByValue env x) of
-		Closure a b c -> evalByValue (extendEnv c a (evalByValue env y)) b
-evalByValue env (TFun x y) = Closure x y env 
+evalByValue env (TNum n)=  ValInt n 
+evalByValue env (TLet x t u) = evalByValue (extendEnv env x (evalByValue env t)) u 
+evalByValue env (TFix x t) = evalByValue (extendEnv env x (Thunk (TFix x t) env)) t 
+evalByValue env (TApp t u) = 
+    case (evalByValue env t) of
+        Closure x t1 e1 -> evalByValue (extendEnv e1 x (evalByValue env u)) t1
+evalByValue env (TFun x t) = Closure x t env 
 evalByValue env (TVar x) = case (lookup x env) of
     Just (Thunk a b) -> (evalByValue b a)
     Just (Closure s t e) -> (Closure s t e)
     Just (ValInt с) -> (ValInt с)
-    Nothing -> error "Var not in env"
+    Nothing -> error "TVar not in env"
 
-test =  TPlus (TNum 1) (TNum 2)
+eval :: Term -> Value
+eval t = evalByValue [] t
 
-fact = TFix (['f']) (TFun (['f']) (TIf (TVar (['n'])) (TNum 1) (TMult (TVar (['n'])) (TApp (TVar (['f'])) (TSub (TVar (['n'])) (TNum 1) ) ) )))
-fact5 = TApp ( fact) (TNum 5)
+fact = TFix (['f']) (TFun (['n']) (TIf (TVar (['n'])) (TNum 1) (TMult (TVar (['n'])) (TApp (TVar (['f'])) (TSub (TVar (['n'])) (TNum 1) ) ) )))
+fact5 = TApp (fact) (TNum 5)
 
+--Нумералы Черча
+nthApp::Int -> String -> Term -> Term
+nthApp n s z = if n == 0 then z else TApp (TVar s) (nthApp (n-1) s z)
+intToChurch :: Int -> Term 
+intToChurch n = TFun ("s") (TFun ("z") (nthApp n "s" (TVar ("z"))))
+zeroChurch = TFun ("s") (TFun ("z") (TVar ("z")))
+add1Term = TFun ("x") (TPlus (TVar ("x")) (TNum 1))
+
+churchToInt :: Term -> Integer
+churchToInt n = case (eval (TApp (TApp (n) (add1Term)) (TNum 0))) of
+    ValInt i -> i
+    _ -> error "WrongValue"
+
+plusTerm = TFun ("m") (TFun ("n") (TFun ("s") (TFun ("z") (TApp (TApp (TVar ("m")) (TVar ("s"))) (TApp (TApp (TVar ("n")) ( TVar ("s"))) (TVar ("z")) )))))
+
+timesTerm = TFun ("m") (TFun ("n") (TApp (TApp (TVar ("m")) (TApp (plusTerm) (TVar ("n")))) (zeroChurch)))
+
+checkNumOp op m n = TApp (TApp (op) (intToChurch m)) (intToChurch n) & churchToInt
 
