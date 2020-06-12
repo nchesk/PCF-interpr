@@ -65,8 +65,34 @@ evalByValue env (TVar x) = case (lookup x env) of
     Just (ValInt с) -> (ValInt с)
     Nothing -> error "TVar not in env"
 
+evalByName :: Environment -> Term -> Value
+evalByName env (TVar x) = case (lookup x env) of
+    Just (Thunk t e1) -> (evalByName e1 t)
+evalByName env (TApp t u) = case (evalByName env t) of
+    Closure x t1 e1 -> evalByName (extendEnv e1 x (Thunk u env)) t1
+evalByName env (TFun x t) = Closure x t env
+evalByName env (TNum n) = ValInt n
+evalByName env (TPlus t u) = case ((evalByValue env t), (evalByValue env u)) of
+        ((ValInt t),(ValInt u)) -> ValInt (t + u)
+        _ -> error "Arguments of Plus function aren't numbers"
+evalByName env (TSub t u) = case ((evalByValue env t), (evalByValue env u)) of
+        ((ValInt t),(ValInt u)) -> ValInt (t - u)
+        _ -> error "Arguments of Substract function aren't numbers"
+evalByName env (TMult t u) = case ((evalByValue env t), (evalByValue env u)) of
+        ((ValInt t),(ValInt u)) -> ValInt (t * u)
+        _ -> error "Arguments of Multiply function aren't numbers"
+evalByName env (TDiv t u) = case ((evalByValue env t), (evalByValue env u)) of
+        ((ValInt t), (ValInt u)) -> if (ValInt u) /= (ValInt 0) then ValInt(t `div` u) else error "Seems like you try to divide by zero"
+        _ -> error "Arguments of Divide function aren't numbers"
+evalByName env (TIf t u v) = case (evalByName env t) of
+    ValInt n -> if n == 0 then (evalByName env u) else (evalByName env v)
+evalByName env (TFix x t) = evalByName (extendEnv env x (Thunk (TFix x t) env)) t
+evalByName env (TLet x t u) = evalByName (extendEnv env x (Thunk t env)) u
+
+
+
 eval :: Term -> Value
-eval t = evalByValue [] t
+eval t = evalByName [] t
 
 fact = TFix (['f']) (TFun (['n']) (TIf (TVar (['n'])) (TNum 1) (TMult (TVar (['n'])) (TApp (TVar (['f'])) (TSub (TVar (['n'])) (TNum 1) ) ) )))
 fact5 = TApp (fact) (TNum 5)
@@ -89,4 +115,3 @@ plusTerm = TFun ("m") (TFun ("n") (TFun ("s") (TFun ("z") (TApp (TApp (TVar ("m"
 timesTerm = TFun ("m") (TFun ("n") (TApp (TApp (TVar ("m")) (TApp (plusTerm) (TVar ("n")))) (zeroChurch)))
 
 checkNumOp op m n = TApp (TApp (op) (intToChurch m)) (intToChurch n) & churchToInt
-
